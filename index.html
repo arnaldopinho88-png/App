@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vistoria — Carimbo + Cômodos</title>
+  <meta name="theme-color" content="#111827" />
+  <link rel="manifest" href="manifest.webmanifest">
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 0; background:#0b1020; color:#eef2ff; }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 16px; }
+    .card { background:#111827; border:1px solid #243047; border-radius:14px; padding: 14px; margin-bottom: 12px; }
+    h2,h3 { margin: 0 0 10px; }
+    label { display:block; font-size: 12px; opacity:.9; margin-bottom:6px; }
+    input, select { width:100%; padding: 12px; border-radius: 12px; border:1px solid #2b3a55; background:#0b1225; color:#eef2ff; font-size:16px; }
+    .row { display:grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .btn { width:100%; padding: 14px; border-radius: 14px; border:0; font-size: 16px; font-weight: 650; cursor:pointer; }
+    .btn.primary { background:#3b82f6; color:white; }
+    .btn.danger { background:#ef4444; color:white; }
+    .btn.secondary { background:#111827; border:1px solid #2b3a55; color:#eef2ff; }
+    .btn.small { padding: 10px; font-size: 14px; border-radius: 12px; }
+    .hint { font-size: 12px; opacity:.85; margin-top: 8px; line-height: 1.35; }
+    .status { font-size: 13px; opacity:.95; margin-top: 8px; }
+    .pill { display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; border:1px solid #2b3a55; background:#0b1225; font-size:12px; }
+    .pill.ok { border-color:#14532d; background:#052e16; }
+    .pill.warn { border-color:#78350f; background:#2a1503; }
+    .pill.bad { border-color:#7f1d1d; background:#2a0c0c; }
+    .grid { display:grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .roomList { display:grid; grid-template-columns: 1fr; gap: 8px; }
+    .roomItem { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px; border-radius:12px; border:1px solid #2b3a55; background:#0b1225; }
+    .roomItem .left { display:flex; flex-direction:column; gap:4px; }
+    .roomItem .title { font-weight: 700; }
+    .roomItem .sub { font-size: 12px; opacity:.85; }
+    .thumb { width:100%; border-radius: 12px; border:1px solid #2b3a55; background:#0b1225; overflow:hidden; }
+    .thumb img { width:100%; display:block; }
+    .thumb .meta { padding: 8px; font-size: 12px; opacity:.9; display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+    .star { cursor:pointer; user-select:none; font-size: 18px; }
+    .divider { height:1px; background:#243047; margin: 10px 0; }
+    .counter { display:flex; align-items:center; gap:8px; }
+    .miniBtn { width: 44px; height: 44px; border-radius: 12px; border:1px solid #2b3a55; background:#111827; color:#eef2ff; font-size: 18px; cursor:pointer; }
+    .miniBtn:disabled { opacity:.45; cursor:not-allowed; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    @media (max-width: 740px) { .row { grid-template-columns: 1fr; } .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <!-- SETUP -->
+    <div class="card" id="setupCard">
+      <h2>🧱 Setup da Vistoria</h2>
+
+      <div class="row">
+        <div>
+          <label>Ordem de Serviço (OS) *</label>
+          <input id="os" placeholder="Ex.: OS-2026-017" />
+        </div>
+        <div>
+          <label>ID do Laudo (opcional)</label>
+          <input id="laudoId" placeholder="Ex.: LAUDO-045" />
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:10px;">
+        <div>
+          <label>Cliente/Obra (opcional)</label>
+          <input id="cliente" placeholder="Ex.: Condomínio X / Apto 34" />
+        </div>
+        <div>
+          <label>Formato do carimbo</label>
+          <select id="mode">
+            <option value="coordsAccuracy">Data/hora + Coordenadas + Precisão</option>
+            <option value="coords">Data/hora + Coordenadas</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <h3>🏠 Composição do imóvel</h3>
+      <div class="hint" style="margin-top:0;">
+        Ajuste as quantidades com <span class="mono">–</span> e <span class="mono">+</span>.
+        O app vai gerar “Quarto 1, Quarto 2…” automaticamente.<br>
+        <b>Fachada permite aumentar e diminuir, mas nunca pode ficar abaixo de 1.</b>
+      </div>
+
+      <div id="roomCounters" class="roomList" style="margin-top:10px;"></div>
+
+      <div class="row" style="margin-top:10px;">
+        <button class="btn secondary" id="btnAddRoom">➕ Adicionar outro cômodo (custom)</button>
+        <button class="btn primary" id="btnStart">▶️ Iniciar Vistoria (travar OS/ID)</button>
+      </div>
+
+      <div class="status" id="setupStatus"></div>
+    </div>
+
+    <!-- VISTORIA -->
+    <div class="card" id="vistoriaCard" style="display:none;">
+      <h2>📸 Modo Vistoria</h2>
+
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <span class="pill" id="pillOs"></span>
+        <span class="pill" id="pillLoc">📍 Localização: não coletada</span>
+        <span class="pill" id="pillFachada"></span>
+      </div>
+
+      <div class="row" style="margin-top:10px;">
+        <button class="btn secondary" id="btnLoc">📍 Testar localização</button>
+        <button class="btn secondary" id="btnUnlock">🔓 Reabrir edição OS/ID</button>
+      </div>
+
+      <div class="hint">
+        Toque em um cômodo para tirar fotos (pode tirar várias). Marque ⭐ a melhor foto depois.
+      </div>
+
+      <div class="divider"></div>
+
+      <h3>✅ Cômodos</h3>
+      <div id="rooms" class="roomList"></div>
+
+      <div class="divider"></div>
+
+      <div class="row">
+        <button class="btn secondary" id="btnExportJson">📤 Exportar (JSON de metadados)</button>
+        <button class="btn primary" id="btnFinish">✅ Finalizar (verificar fachadas)</button>
+      </div>
+
+      <div class="status" id="finishStatus"></div>
+    </div>
+
+    <!-- GALERIA -->
+    <div class="card" id="galleryCard" style="display:none;">
+      <h3>📂 Galeria — fotos carimbadas</h3>
+      <div class="hint" style="margin-top:0;">
+        ⭐ = “melhor foto do cômodo”. Você pode escolher a melhor depois para o laudo.
+      </div>
+      <div id="gallery" class="grid" style="margin-top:10px;"></div>
+      <button class="btn danger" id="btnClear" style="margin-top:10px;">🧹 Limpar tudo</button>
+    </div>
+
+    <!-- input de câmera escondido -->
+    <input id="file" type="file" accept="image/*" capture="environment" style="display:none;" />
+
+  </div>
+
+<script>
+  const el = (id) => document.getElementById(id);
+
+  const state = {
+    locked: false,
+    config: { os: "", laudoId: "", cliente: "", mode: "coordsAccuracy" },
+    templates: [
+      { key: "Fachada", label: "Fachada", count: 1, required: true },
+      { key: "Sala", label: "Sala", count: 1, required: false },
+      { key: "Cozinha", label: "Cozinha", count: 1, required: false },
+      { key: "Quarto", label: "Quarto", count: 3, required: false },
+      { key: "Suíte", label: "Suíte", count: 1, required: false },
+      { key: "Banheiro", label: "Banheiro", count: 2, required: false },
+      { key: "Varanda", label: "Varanda", count: 1, required: false },
+      { key: "Área de Serviço", label: "Área de Serviço", count: 1, required: false },
+      { key: "Garagem", label: "Garagem", count: 0, required: false }
+    ],
+    rooms: [],
+    activeRoomId: null,
+    lastPos: null
+  };
+
+  function pad(n){ return String(n).padStart(2,"0"); }
+  function fmtDate(d){ return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; }
+  function fmtCoord(n){ return (Math.round(n * 1e6) / 1e6).toFixed(6); }
+
+  function ensureOS() {
+    const os = el("os").value.trim();
+    if (!os) { alert("Informe a Ordem de Serviço (OS)."); el("os").focus(); return null; }
+    return os;
+  }
+
+  async function getPosition() {
+    if (!navigator.geolocation) throw new Error("Geolocalização não suportada.");
+    return await new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true, timeout: 15000, maximumAge: 5000
+      });
+    });
+  }
+
+  function updateLocPill(text, level="warn") {
+    const pill = el("pillLoc");
+    pill.className = "pill " + (level==="ok" ? "ok" : level==="bad" ? "bad" : "warn");
+    pill.textContent = text;
+  }
+
+  async function testLocation() {
+    try {
+      updateLocPill("📍 Localização: coletando…", "warn");
+      const pos = await getPosition();
+      const lat = pos.coords.latitude, lng = pos.coords.longitude, acc = pos.coords.accuracy;
+      state.lastPos = { lat, lng, acc, timestamp: Date.now() };
+      updateLocPill(`📍 OK: ${fmtCoord(lat)}, ${fmtCoord(lng)} (±${Math.round(acc)} m)`, "ok");
+    } catch (e) {
+      updateLocPill(`📍 Falhou: ${e.message}`, "bad");
+    }
+  }
+
+  async function loadImageFromFile(file) {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.src = url;
+    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; });
+    return img;
+  }
+
+  function drawOverlay(ctx, w, h, lines) {
+    const padding = Math.max(16, Math.round(w * 0.02));
+    const fontSize = Math.max(16, Math.round(w * 0.03));
+    const lineH = Math.max(20, Math.round(fontSize * 1.05));
+    const boxH = padding*2 + lineH*lines.length;
+
+    ctx.save();
+    ctx.globalAlpha = 0.78;
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, h - boxH, w, boxH);
+    ctx.globalAlpha = 1;
+
+    ctx.fillStyle = "#fff";
+    ctx.font = `700 ${fontSize}px system-ui, -apple-system, Segoe UI, Roboto, Arial`;
+    ctx.textBaseline = "top";
+
+    let y = h - boxH + padding;
+    for (const line of lines) {
+      ctx.fillText(line, padding, y);
+      y += lineH;
+    }
+    ctx.restore();
+  }
+
+  async function stampPhoto(file, roomLabel) {
+    const capturedAt = new Date();
+
+    let pos = null;
+    try {
+      const p = await getPosition();
+      pos = { lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy };
+      state.lastPos = { ...pos, timestamp: Date.now() };
+      updateLocPill(`📍 OK: ${fmtCoord(pos.lat)}, ${fmtCoord(pos.lng)} (±${Math.round(pos.acc)} m)`, "ok");
+    } catch {
+      updateLocPill("📍 Sem GPS no clique", "warn");
+    }
+
+    const img = await loadImageFromFile(file);
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    ctx.drawImage(img, 0, 0);
+
+    const { os, laudoId, cliente, mode } = state.config;
+    const lines = [];
+    lines.push(`OS: ${os}${laudoId ? " | ID: " + laudoId : ""}${cliente ? " | " + cliente : ""}`);
+    lines.push(`Cômodo: ${roomLabel} | Data/Hora: ${fmtDate(capturedAt)}`);
+
+    if (pos) {
+      const base = `GPS: ${fmtCoord(pos.lat)}, ${fmtCoord(pos.lng)}`;
+      lines.push(mode === "coordsAccuracy" ? `${base} (±${Math.round(pos.acc)} m)` : base);
+    } else {
+      lines.push("GPS: (indisponível)");
+    }
+
+    drawOverlay(ctx, canvas.width, canvas.height, lines);
+    const blob = await new Promise(res => canvas.toBlob(res, "image/jpeg", 0.92));
+
+    return { blob, capturedAtISO: capturedAt.toISOString(), roomLabel, gps: pos ? { ...pos } : null };
+  }
+
+  function isFachadaLabel(label) {
+    return String(label || "").toLowerCase().includes("fachada");
+  }
+
+  function refreshFachadaStatus() {
+    const fachadas = state.rooms.filter(r => isFachadaLabel(r.label));
+    const totalFotos = fachadas.reduce((sum, r) => sum + r.photos.length, 0);
+    const ok = totalFotos > 0;
+
+    const pill = el("pillFachada");
+    pill.className = "pill " + (ok ? "ok" : "bad");
+    pill.textContent = ok
+      ? `✅ Fachada OK (${totalFotos} foto(s))`
+      : "❌ Fachada obrigatória (falta pelo menos 1 foto)";
+  }
+
+  function renderRoomCounters() {
+    const wrap = el("roomCounters");
+    wrap.innerHTML = "";
+
+    state.templates.forEach((t, idx) => {
+      const isFachada = isFachadaLabel(t.label);
+      const badge = isFachada
+        ? '<span class="pill bad" style="margin-left:8px;">Mín. 1</span>'
+        : (t.required ? '<span class="pill bad" style="margin-left:8px;">Obrigatória</span>' : '');
+
+      const row = document.createElement("div");
+      row.className = "roomItem";
+      row.innerHTML = `
+        <div class="left">
+          <div class="title">${t.label} ${badge}</div>
+          <div class="sub">Quantidade: <span class="mono">${t.count}</span></div>
+        </div>
+        <div class="counter">
+          <button class="miniBtn" data-act="minus" data-idx="${idx}" ${state.locked ? "disabled" : ""}>–</button>
+          <button class="miniBtn" data-act="plus" data-idx="${idx}" ${state.locked ? "disabled" : ""}>+</button>
+        </div>
+      `;
+      wrap.appendChild(row);
+    });
+
+    wrap.querySelectorAll("button[data-act]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const act = btn.getAttribute("data-act");
+        const i = Number(btn.getAttribute("data-idx"));
+        const t = state.templates[i];
+
+        if (act === "minus") {
+          // ✅ Fachada pode diminuir, mas nunca abaixo de 1
+          const min = isFachadaLabel(t.label) ? 1 : 0;
+          t.count = Math.max(min, Number(t.count) - 1);
+        } else if (act === "plus") {
+          t.count = Math.min(20, Number(t.count) + 1);
+        }
+
+        renderRoomCounters();
+      });
+    });
+  }
+
+  function buildRoomsFromCounters() {
+    const rooms = [];
+
+    for (const t of state.templates) {
+      if (Number(t.count) <= 0) continue;
+
+      if (isFachadaLabel(t.label)) {
+        // Fachada: 1 -> "Fachada"; 2+ -> "Fachada 1", "Fachada 2"...
+        if (Number(t.count) === 1) {
+          rooms.push({ id: crypto.randomUUID(), label: "Fachada", required: true, photos: [] });
+        } else {
+          for (let i=1;i<=Number(t.count);i++) {
+            rooms.push({ id: crypto.randomUUID(), label: `Fachada ${i}`, required: true, photos: [] });
+          }
+        }
+        continue;
+      }
+
+      if (Number(t.count) === 1) {
+        rooms.push({ id: crypto.randomUUID(), label: t.label, required: !!t.required, photos: [] });
+      } else {
+        for (let i=1;i<=Number(t.count);i++) {
+          rooms.push({ id: crypto.randomUUID(), label: `${t.label} ${i}`, required: !!t.required, photos: [] });
+        }
+      }
+    }
+
+    // ✅ garante pelo menos 1 fachada sempre
+    if (!rooms.some(r => isFachadaLabel(r.label))) {
+      rooms.unshift({ id: crypto.randomUUID(), label: "Fachada", required: true, photos: [] });
+    }
+
+    // fachadas primeiro
+    rooms.sort((a,b) => (isFachadaLabel(a.label) === isFachadaLabel(b.label)) ? 0 : isFachadaLabel(a.label) ? -1 : 1);
+
+    state.rooms = rooms;
+  }
+
+  function renderRooms() {
+    const wrap = el("rooms");
+    wrap.innerHTML = "";
+
+    state.rooms.forEach(r => {
+      const count = r.photos.length;
+      const fachada = isFachadaLabel(r.label);
+
+      const badge = fachada
+        ? (count>0 ? `<span class="pill ok">✅ ok</span>` : `<span class="pill bad">❌ obrigatório</span>`)
+        : (count>0 ? `<span class="pill ok">📸 ${count}</span>` : `<span class="pill warn">0 fotos</span>`);
+
+      const div = document.createElement("div");
+      div.className = "roomItem";
+      div.innerHTML = `
+        <div class="left">
+          <div class="title">${r.label} ${fachada ? '<span class="pill bad" style="margin-left:8px;">Obrigatória</span>' : ""}</div>
+          <div class="sub">${count} foto(s) ${count>0 ? "— toque para adicionar mais" : "— toque para tirar"}</div>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center;">
+          ${badge}
+          <button class="btn small secondary" data-room="${r.id}">📷 Foto</button>
+        </div>
+      `;
+      wrap.appendChild(div);
+    });
+
+    wrap.querySelectorAll("button[data-room]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        state.activeRoomId = btn.getAttribute("data-room");
+        el("file").click();
+      });
+    });
+
+    refreshFachadaStatus();
+  }
+
+  function renderGallery() {
+    const g = el("gallery");
+    g.innerHTML = "";
+
+    const all = [];
+    for (const room of state.rooms) {
+      room.photos.forEach((p) => all.push({ room, p }));
+    }
+
+    all.reverse().forEach(({room, p}) => {
+      const div = document.createElement("div");
+      div.className = "thumb";
+      const star = p.best ? "⭐" : "☆";
+      const gpsText = p.gps ? `±${Math.round(p.gps.acc)}m` : "sem GPS";
+      div.innerHTML = `
+        <img src="${p.url}" alt="carimbada">
+        <div class="meta">
+          <div>
+            <div><b>${room.label}</b></div>
+            <div class="small">${fmtDate(new Date(p.capturedAtISO))} — ${gpsText}</div>
+          </div>
+          <div style="display:flex; gap:10px; align-items:center;">
+            <span class="star" title="Marcar melhor foto" data-star="${room.id}::${p.id}">${star}</span>
+            <a download="${state.config.os}_${room.label.replaceAll(" ","_")}_${Date.now()}.jpg" href="${p.url}" style="color:#93c5fd;">⬇️ Baixar</a>
+          </div>
+        </div>
+      `;
+      g.appendChild(div);
+    });
+
+    g.querySelectorAll("[data-star]").forEach(s => {
+      s.addEventListener("click", () => {
+        const [roomId, photoId] = s.getAttribute("data-star").split("::");
+        const room = state.rooms.find(r => r.id === roomId);
+        if (!room) return;
+
+        room.photos.forEach(ph => ph.best = false);
+        const ph = room.photos.find(ph => ph.id === photoId);
+        if (ph) ph.best = true;
+        renderGallery();
+      });
+    });
+  }
+
+  function lockConfig(lock) {
+    state.locked = lock;
+    ["os","laudoId","cliente","mode"].forEach(id => el(id).disabled = lock);
+    el("btnAddRoom").disabled = lock;
+
+    // re-render para aplicar disabled nos botões +/- conforme estado
+    renderRoomCounters();
+
+    const st = el("setupStatus");
+    st.textContent = lock
+      ? "Configuração travada (OS/ID). Para alterar, use “Reabrir edição OS/ID” no modo vistoria."
+      : "";
+  }
+
+  function showVistoria() {
+    el("setupCard").style.display = "none";
+    el("vistoriaCard").style.display = "";
+    el("galleryCard").style.display = "";
+
+    el("pillOs").className = "pill ok";
+    el("pillOs").textContent = `OS: ${state.config.os}${state.config.laudoId ? " | ID: " + state.config.laudoId : ""}`;
+
+    refreshFachadaStatus();
+    renderRooms();
+    renderGallery();
+  }
+
+  function showSetup() {
+    el("setupCard").style.display = "";
+    el("vistoriaCard").style.display = "none";
+    el("galleryCard").style.display = "none";
+  }
+
+  function validateFachada() {
+    const fachadas = state.rooms.filter(r => isFachadaLabel(r.label));
+    const totalFotos = fachadas.reduce((sum, r) => sum + r.photos.length, 0);
+    return totalFotos > 0;
+  }
+
+  function exportJson() {
+    const data = {
+      config: state.config,
+      createdAt: new Date().toISOString(),
+      rooms: state.rooms.map(r => ({
+        label: r.label,
+        required: r.required,
+        photos: r.photos.map(p => ({
+          id: p.id,
+          capturedAtISO: p.capturedAtISO,
+          gps: p.gps,
+          best: p.best,
+          roomLabel: p.roomLabel
+        }))
+      }))
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${state.config.os}_vistoria.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function clearAll() {
+    for (const r of state.rooms) for (const p of r.photos) URL.revokeObjectURL(p.url);
+    state.rooms = [];
+    state.activeRoomId = null;
+    state.locked = false;
+    state.config = { os:"", laudoId:"", cliente:"", mode:"coordsAccuracy" };
+    el("os").value = "";
+    el("laudoId").value = "";
+    el("cliente").value = "";
+    el("mode").value = "coordsAccuracy";
+    lockConfig(false);
+    showSetup();
+  }
+
+  // Eventos
+  el("btnLoc").addEventListener("click", testLocation);
+
+  el("btnAddRoom").addEventListener("click", () => {
+    const name = prompt("Nome do cômodo (ex.: Escritório, Quintal, Corredor):");
+    if (!name) return;
+    state.templates.push({ key: name, label: name, count: 1, required: false });
+    renderRoomCounters();
+  });
+
+  el("btnStart").addEventListener("click", () => {
+    const os = ensureOS();
+    if (!os) return;
+
+    state.config.os = os;
+    state.config.laudoId = el("laudoId").value.trim();
+    state.config.cliente = el("cliente").value.trim();
+    state.config.mode = el("mode").value;
+
+    buildRoomsFromCounters();
+    lockConfig(true);
+    showVistoria();
+  });
+
+  el("btnUnlock").addEventListener("click", () => {
+    const ok = confirm("Reabrir edição vai destravar OS/ID e permitir ajustar cômodos. Continuar?");
+    if (!ok) return;
+    lockConfig(false);
+    showSetup();
+    el("setupStatus").textContent = "Edite e clique novamente em “Iniciar Vistoria”. (Se já tiver fotos, evite mudar os cômodos para não bagunçar.)";
+  });
+
+  el("file").addEventListener("change", async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    const room = state.rooms.find(r => r.id === state.activeRoomId);
+    if (!room) { alert("Selecione um cômodo antes de tirar foto."); return; }
+
+    try {
+      const stamped = await stampPhoto(file, room.label);
+      const url = URL.createObjectURL(stamped.blob);
+
+      room.photos.push({
+        id: crypto.randomUUID(),
+        url,
+        capturedAtISO: stamped.capturedAtISO,
+        gps: stamped.gps,
+        roomLabel: room.label,
+        best: room.photos.length === 0
+      });
+
+      renderRooms();
+      renderGallery();
+    } catch (err) {
+      alert("Erro ao carimbar foto: " + err.message);
+    }
+  });
+
+  el("btnFinish").addEventListener("click", () => {
+    const okFachada = validateFachada();
+    const s = el("finishStatus");
+    if (!okFachada) {
+      s.textContent = "❌ Não é possível finalizar: falta pelo menos 1 foto em alguma FACHADA.";
+      s.style.color = "#fecaca";
+      return;
+    }
+    s.textContent = "✅ Finalizado (fachada ok). Você pode exportar o JSON e baixar as imagens carimbadas.";
+    s.style.color = "#bbf7d0";
+  });
+
+  el("btnExportJson").addEventListener("click", exportJson);
+
+  el("btnClear").addEventListener("click", () => {
+    const ok = confirm("Tem certeza que deseja apagar tudo?");
+    if (ok) clearAll();
+  });
+
+  // Inicialização
+  renderRoomCounters();
+
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("./sw.js").catch(() => {});
+  }
+</script>
+</body>
+</html>
