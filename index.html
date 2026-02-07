@@ -3,9 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Vistoria — Carimbo + Cômodos (ZIP)</title>
+  <title>ALPS Vistoria — Carimbo + ZIP</title>
   <meta name="theme-color" content="#111827" />
   <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <style>
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 0; background:#0b1020; color:#eef2ff; }
     .wrap { max-width: 980px; margin: 0 auto; padding: 16px; }
@@ -40,6 +41,13 @@
     .miniBtn { width: 44px; height: 44px; border-radius: 12px; border:1px solid #2b3a55; background:#111827; color:#eef2ff; font-size: 18px; cursor:pointer; }
     .miniBtn:disabled { opacity:.45; cursor:not-allowed; }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    .switchRow{ display:flex; gap:10px; align-items:center; justify-content:space-between; padding:10px; border-radius:12px; border:1px solid #2b3a55; background:#0b1225; margin-top:10px; }
+    .switchRow .txt{ display:flex; flex-direction:column; gap:2px; }
+    .toggle{ width:54px; height:32px; border-radius:999px; background:#1f2a44; border:1px solid #2b3a55; position:relative; cursor:pointer; flex:0 0 auto; }
+    .toggle::after{ content:""; width:26px; height:26px; background:#eef2ff; border-radius:999px; position:absolute; top:2px; left:2px; transition: all .15s ease; }
+    .toggle.on{ background:#2563eb; border-color:#1d4ed8; }
+    .toggle.on::after{ left:26px; }
+    .chipRow{ display:flex; gap:10px; flex-wrap:wrap; }
     @media (max-width: 740px) { .row { grid-template-columns: 1fr; } .grid { grid-template-columns: 1fr; } }
   </style>
 </head>
@@ -75,20 +83,30 @@
         </div>
       </div>
 
+      <div class="switchRow" style="margin-top:12px;">
+        <div class="txt">
+          <div style="font-weight:700;">🛟 Backup interno automático (plano B)</div>
+          <div class="hint" style="margin:0;">
+            Guarda uma cópia de cada foto carimbada no <b>cofre do app</b> (IndexedDB).
+            Você consegue abrir pelo botão “📂 Abrir Backup no App” e apagar depois.
+          </div>
+        </div>
+        <div id="togBackup" class="toggle on" title="Ligar/desligar"></div>
+      </div>
+
       <div class="divider"></div>
 
       <h3>🏠 Composição do imóvel</h3>
       <div class="hint" style="margin-top:0;">
         Ajuste as quantidades com <span class="mono">–</span> e <span class="mono">+</span>.
-        O app vai gerar “Quarto 1, Quarto 2…” automaticamente.<br>
-        <b>Fachada permite aumentar e diminuir, mas nunca pode ficar abaixo de 1.</b>
+        <br><b>Fachada pode aumentar/diminuir, mas nunca fica abaixo de 1.</b>
       </div>
 
       <div id="roomCounters" class="roomList" style="margin-top:10px;"></div>
 
       <div class="row" style="margin-top:10px;">
-        <button class="btn secondary" id="btnAddRoom">➕ Adicionar outro cômodo (custom)</button>
-        <button class="btn primary" id="btnStart">▶️ Iniciar Vistoria (travar OS/ID)</button>
+        <button class="btn secondary" id="btnAddRoom">➕ Adicionar outro cômodo</button>
+        <button class="btn primary" id="btnStart">▶️ Iniciar Vistoria</button>
       </div>
 
       <div class="status" id="setupStatus"></div>
@@ -98,19 +116,27 @@
     <div class="card" id="vistoriaCard" style="display:none;">
       <h2>📸 Modo Vistoria</h2>
 
-      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+      <div class="chipRow">
         <span class="pill" id="pillOs"></span>
         <span class="pill" id="pillLoc">📍 Localização: não coletada</span>
         <span class="pill" id="pillFachada"></span>
+        <span class="pill warn" id="pillBackup">🛟 Backup: ligado</span>
       </div>
 
       <div class="row" style="margin-top:10px;">
         <button class="btn secondary" id="btnLoc">📍 Testar localização</button>
-        <button class="btn secondary" id="btnUnlock">🔓 Reabrir edição OS/ID</button>
+        <button class="btn secondary" id="btnUnlock">🔓 Reabrir edição</button>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="row">
+        <button class="btn secondary" id="btnOpenBackup">📂 Abrir Backup no App</button>
+        <button class="btn danger" id="btnDeleteBackupOS">🧹 Apagar Backup desta OS</button>
       </div>
 
       <div class="hint">
-        Toque em um cômodo para tirar fotos (pode tirar várias). Marque ⭐ a melhor foto depois.
+        Tire fotos por cômodo. ⭐ marca a melhor do cômodo. Você pode exportar ZIP e compartilhar.
       </div>
 
       <div class="divider"></div>
@@ -121,32 +147,52 @@
       <div class="divider"></div>
 
       <div class="row">
-        <button class="btn secondary" id="btnExportJson">📤 Exportar JSON (metadados)</button>
-        <button class="btn secondary" id="btnExportZip">📦 Exportar ZIP (imagens + manifesto)</button>
+        <button class="btn secondary" id="btnExportZip">📦 Baixar ZIP</button>
+        <button class="btn primary" id="btnShareZip">📤 Compartilhar ZIP</button>
       </div>
 
       <div class="row" style="margin-top:10px;">
-        <button class="btn primary" id="btnFinish">✅ Finalizar (verificar fachadas)</button>
+        <button class="btn secondary" id="btnExportJson">📤 Exportar JSON</button>
+        <button class="btn primary" id="btnFinish">✅ Finalizar</button>
+      </div>
+
+      <div class="row" style="margin-top:10px;">
         <button class="btn danger" id="btnClearTop">🧹 Limpar tudo</button>
       </div>
 
       <div class="status" id="finishStatus"></div>
     </div>
 
-    <!-- GALERIA -->
+    <!-- GALERIA DO APP (sessão atual) -->
     <div class="card" id="galleryCard" style="display:none;">
-      <h3>📂 Galeria — fotos carimbadas</h3>
+      <h3>📂 Galeria — sessão atual</h3>
       <div class="hint" style="margin-top:0;">
-        ⭐ = “melhor foto do cômodo”. O ZIP vai exportar <b>todas</b> as fotos e marcar quais são “best”.
+        Isso é a sessão atual. O <b>Backup</b> é separado e fica em “Abrir Backup no App”.
       </div>
       <div id="gallery" class="grid" style="margin-top:10px;"></div>
     </div>
 
-    <!-- input de câmera escondido -->
+    <!-- BACKUP VIEW -->
+    <div class="card" id="backupCard" style="display:none;">
+      <h3>🛟 Backup no App</h3>
+      <div class="hint" style="margin-top:0;">
+        Aqui ficam as cópias de segurança (plano B). Você pode baixar/compartilhar cada uma e apagar quando quiser.
+      </div>
+
+      <div class="row" style="margin-top:10px;">
+        <button class="btn secondary" id="btnBackToVistoria">⬅️ Voltar</button>
+        <button class="btn danger" id="btnDeleteBackupAll">🧹 Apagar TODOS os backups</button>
+      </div>
+
+      <div class="status" id="backupStatus"></div>
+      <div id="backupList" class="grid" style="margin-top:10px;"></div>
+    </div>
+
     <input id="file" type="file" accept="image/*" capture="environment" style="display:none;" />
+
   </div>
 
-  <!-- JSZip (precisa internet para exportar ZIP) -->
+  <!-- JSZip (precisa internet para ZIP) -->
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 
 <script>
@@ -155,6 +201,7 @@
   const state = {
     locked: false,
     config: { os: "", laudoId: "", cliente: "", mode: "coordsAccuracy" },
+    options: { backupOn: true },
     templates: [
       { key: "Fachada", label: "Fachada", count: 1, required: true },
       { key: "Sala", label: "Sala", count: 1, required: false },
@@ -169,9 +216,85 @@
     rooms: [],
     activeRoomId: null,
     lastPos: null,
-    photoSeq: 0, // contador global para nomes
   };
 
+  // ---------- IndexedDB (Backup cofre do app) ----------
+  const DB_NAME = "alps_vistoria_backup_v1";
+  const STORE = "photos";
+
+  function openDB() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        const st = db.createObjectStore(STORE, { keyPath: "id" });
+        st.createIndex("by_os", "os", { unique: false });
+        st.createIndex("by_created", "createdAt", { unique: false });
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function dbPutPhoto(record) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE, "readwrite");
+      tx.objectStore(STORE).put(record);
+      tx.oncomplete = () => { db.close(); resolve(true); };
+      tx.onerror = () => { db.close(); reject(tx.error); };
+    });
+  }
+
+  async function dbListPhotos(osFilter=null) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE, "readonly");
+      const st = tx.objectStore(STORE);
+      const idx = st.index("by_created");
+      const out = [];
+
+      const req = idx.openCursor(null, "prev"); // mais recentes primeiro
+      req.onsuccess = () => {
+        const cur = req.result;
+        if (!cur) { db.close(); resolve(out); return; }
+        const v = cur.value;
+        if (!osFilter || v.os === osFilter) out.push(v);
+        cur.continue();
+      };
+      req.onerror = () => { db.close(); reject(req.error); };
+    });
+  }
+
+  async function dbDeleteByOS(os) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE, "readwrite");
+      const st = tx.objectStore(STORE);
+      const idx = st.index("by_os");
+      const req = idx.openCursor(IDBKeyRange.only(os));
+      req.onsuccess = () => {
+        const cur = req.result;
+        if (!cur) { return; }
+        st.delete(cur.primaryKey);
+        cur.continue();
+      };
+      tx.oncomplete = () => { db.close(); resolve(true); };
+      tx.onerror = () => { db.close(); reject(tx.error); };
+    });
+  }
+
+  async function dbDeleteAll() {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE, "readwrite");
+      tx.objectStore(STORE).clear();
+      tx.oncomplete = () => { db.close(); resolve(true); };
+      tx.onerror = () => { db.close(); reject(tx.error); };
+    });
+  }
+
+  // ---------- helpers ----------
   function pad(n){ return String(n).padStart(2,"0"); }
   function fmtDate(d){ return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; }
   function fmtCoord(n){ return (Math.round(n * 1e6) / 1e6).toFixed(6); }
@@ -195,6 +318,13 @@
     const pill = el("pillLoc");
     pill.className = "pill " + (level==="ok" ? "ok" : level==="bad" ? "bad" : "warn");
     pill.textContent = text;
+  }
+
+  function updateBackupPill() {
+    const pill = el("pillBackup");
+    pill.className = "pill " + (state.options.backupOn ? "ok" : "warn");
+    pill.textContent = state.options.backupOn ? "🛟 Backup: ligado" : "🛟 Backup: desligado";
+    el("togBackup").className = "toggle " + (state.options.backupOn ? "on" : "");
   }
 
   async function testLocation() {
@@ -254,7 +384,6 @@
   }
 
   function makePhotoFilename(os, roomLabel, roomPhotoIndex1Based) {
-    // Ex.: OS-123_Fachada_1_001.jpg / OS-123_Sala_002.jpg
     const osSafe = sanitizeForFilename(os);
     const roomSafe = sanitizeForFilename(roomLabel);
     const seq = pad(roomPhotoIndex1Based);
@@ -355,7 +484,6 @@
 
   function buildRoomsFromCounters() {
     const rooms = [];
-
     for (const t of state.templates) {
       if (Number(t.count) <= 0) continue;
 
@@ -404,7 +532,7 @@
       div.innerHTML = `
         <div class="left">
           <div class="title">${r.label} ${fachada ? '<span class="pill bad" style="margin-left:8px;">Obrigatória</span>' : ""}</div>
-          <div class="sub">${count} foto(s) ${count>0 ? "— toque para adicionar mais" : "— toque para tirar"}</div>
+          <div class="sub">${count} foto(s)</div>
         </div>
         <div style="display:flex; gap:10px; align-items:center;">
           ${badge}
@@ -429,10 +557,7 @@
     g.innerHTML = "";
 
     const all = [];
-    for (const room of state.rooms) {
-      room.photos.forEach((p) => all.push({ room, p }));
-    }
-
+    for (const room of state.rooms) room.photos.forEach((p) => all.push({ room, p }));
     all.reverse().forEach(({room, p}) => {
       const div = document.createElement("div");
       div.className = "thumb";
@@ -448,7 +573,7 @@
           </div>
           <div style="display:flex; gap:10px; align-items:center;">
             <span class="star" title="Marcar melhor foto" data-star="${room.id}::${p.id}">${star}</span>
-            <a download="${p.filename}" href="${p.url}" style="color:#93c5fd;">⬇️ Baixar</a>
+            <a download="${p.filename}" href="${p.url}" style="color:#93c5fd;">⬇️</a>
           </div>
         </div>
       `;
@@ -460,7 +585,6 @@
         const [roomId, photoId] = s.getAttribute("data-star").split("::");
         const room = state.rooms.find(r => r.id === roomId);
         if (!room) return;
-
         room.photos.forEach(ph => ph.best = false);
         const ph = room.photos.find(ph => ph.id === photoId);
         if (ph) ph.best = true;
@@ -475,9 +599,8 @@
     el("btnAddRoom").disabled = lock;
     renderRoomCounters();
 
-    const st = el("setupStatus");
-    st.textContent = lock
-      ? "Configuração travada (OS/ID). Para alterar, use “Reabrir edição OS/ID” no modo vistoria."
+    el("setupStatus").textContent = lock
+      ? "Config travada. Use “Reabrir edição” se precisar."
       : "";
   }
 
@@ -485,17 +608,19 @@
     el("setupCard").style.display = "none";
     el("vistoriaCard").style.display = "";
     el("galleryCard").style.display = "";
+    el("backupCard").style.display = "none";
 
     el("pillOs").className = "pill ok";
     el("pillOs").textContent = `OS: ${state.config.os}${state.config.laudoId ? " | ID: " + state.config.laudoId : ""}`;
+    updateBackupPill();
 
     refreshFachadaStatus();
     renderRooms();
     renderGallery();
   }
 
-  function showSetup() {
-    el("setupCard").style.display = "";
+  function showBackup() {
+    el("backupCard").style.display = "";
     el("vistoriaCard").style.display = "none";
     el("galleryCard").style.display = "none";
   }
@@ -507,7 +632,6 @@
   }
 
   function buildManifestData() {
-    // Manifesto em ordem: rooms na ordem exibida, fotos na ordem capturada por cômodo
     let globalOrder = 0;
     const rows = [];
     const roomsOut = [];
@@ -527,7 +651,6 @@
           lng: p.gps ? p.gps.lng : "",
           acc_m: p.gps ? Math.round(p.gps.acc) : ""
         });
-
         photosOut.push({
           id: p.id,
           filename: p.filename,
@@ -537,19 +660,10 @@
         });
       });
 
-      roomsOut.push({
-        label: room.label,
-        required: !!room.required,
-        photos: photosOut
-      });
+      roomsOut.push({ label: room.label, required: !!room.required, photos: photosOut });
     }
 
-    const json = {
-      config: state.config,
-      createdAt: new Date().toISOString(),
-      rooms: roomsOut
-    };
-
+    const json = { config: state.config, createdAt: new Date().toISOString(), rooms: roomsOut };
     return { rows, json };
   }
 
@@ -561,10 +675,71 @@
       return s;
     };
     const lines = [header.join(",")];
-    for (const r of rows) {
-      lines.push(header.map(h => esc(r[h])).join(","));
-    }
+    for (const r of rows) lines.push(header.map(h => esc(r[h])).join(","));
     return lines.join("\n");
+  }
+
+  async function buildZipAll() {
+    if (typeof JSZip === "undefined") {
+      alert("Biblioteca ZIP não carregou. Verifique internet.");
+      return null;
+    }
+    if (!validateFachada()) {
+      alert("Falta pelo menos 1 foto de fachada.");
+      return null;
+    }
+
+    const { rows, json } = buildManifestData();
+    const csv = toCSV(rows);
+
+    const zip = new JSZip();
+    const osSafe = sanitizeForFilename(state.config.os || "OS");
+    zip.file("manifesto.csv", csv);
+    zip.file("manifesto.json", JSON.stringify(json, null, 2));
+
+    const imgFolder = zip.folder("images");
+    for (const room of state.rooms) {
+      for (const p of room.photos) {
+        if (!p.blob) continue;
+        imgFolder.file(p.filename, p.blob);
+      }
+    }
+
+    const blobZip = await zip.generateAsync({ type: "blob" });
+    const filename = `${osSafe}_vistoria.zip`;
+    return { blobZip, filename };
+  }
+
+  async function downloadZipAll() {
+    const pack = await buildZipAll();
+    if (!pack) return;
+    const url = URL.createObjectURL(pack.blobZip);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = pack.filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function shareZipAll() {
+    const pack = await buildZipAll();
+    if (!pack) return;
+
+    const file = new File([pack.blobZip], pack.filename, { type: "application/zip" });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+      try {
+        await navigator.share({
+          title: `Vistoria ${state.config.os}`,
+          text: `ZIP da vistoria (${state.config.os}) com imagens e manifestos.`,
+          files: [file],
+        });
+        return;
+      } catch {}
+    }
+
+    alert("Seu navegador não suportou compartilhamento direto do arquivo. Vou baixar o ZIP normalmente.");
+    await downloadZipAll();
   }
 
   function exportJsonOnly() {
@@ -578,63 +753,62 @@
     URL.revokeObjectURL(url);
   }
 
-  async function exportZipAll() {
-    if (typeof JSZip === "undefined") {
-      alert("Não foi possível carregar a biblioteca de ZIP. Verifique sua internet e tente novamente.");
-      return;
-    }
-
-    // valida fachada antes de exportar (opcional, mas recomendado)
-    if (!validateFachada()) {
-      alert("Falta pelo menos 1 foto de fachada. Tire uma foto de fachada antes de exportar o ZIP.");
-      return;
-    }
-
-    const { rows, json } = buildManifestData();
-    const csv = toCSV(rows);
-
-    const zip = new JSZip();
-    const osSafe = sanitizeForFilename(state.config.os || "OS");
-    zip.file("manifesto.csv", csv);
-    zip.file("manifesto.json", JSON.stringify(json, null, 2));
-
-    const imgFolder = zip.folder("images");
-
-    // adiciona todas as imagens
-    for (const room of state.rooms) {
-      for (const p of room.photos) {
-        if (!p.blob) continue; // segurança
-        imgFolder.file(p.filename, p.blob);
-      }
-    }
-
-    const blobZip = await zip.generateAsync({ type: "blob" });
-    const url = URL.createObjectURL(blobZip);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${osSafe}_vistoria.zip`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
   function clearAll() {
     for (const r of state.rooms) for (const p of r.photos) URL.revokeObjectURL(p.url);
     state.rooms = [];
     state.activeRoomId = null;
     state.locked = false;
-    state.photoSeq = 0;
     state.config = { os:"", laudoId:"", cliente:"", mode:"coordsAccuracy" };
     el("os").value = "";
     el("laudoId").value = "";
     el("cliente").value = "";
     el("mode").value = "coordsAccuracy";
     lockConfig(false);
-    showSetup();
+    el("setupCard").style.display = "";
+    el("vistoriaCard").style.display = "none";
+    el("galleryCard").style.display = "none";
+    el("backupCard").style.display = "none";
     el("finishStatus").textContent = "";
     updateLocPill("📍 Localização: não coletada", "warn");
   }
 
-  // Eventos
+  // ---------- Backup UI ----------
+  async function refreshBackupUI(osFilter=null) {
+    const list = el("backupList");
+    list.innerHTML = "";
+    const items = await dbListPhotos(osFilter);
+    el("backupStatus").textContent = items.length
+      ? `${items.length} item(ns) no backup${osFilter ? " (OS atual)" : ""}.`
+      : `Nenhum item no backup${osFilter ? " (OS atual)" : ""}.`;
+
+    for (const it of items) {
+      const url = URL.createObjectURL(it.blob);
+      const div = document.createElement("div");
+      div.className = "thumb";
+      const gpsText = it.gps ? `±${Math.round(it.gps.acc)}m` : "sem GPS";
+      div.innerHTML = `
+        <img src="${url}" alt="backup">
+        <div class="meta">
+          <div>
+            <div><b>${it.roomLabel}</b> <span class="mono">(${it.os})</span></div>
+            <div class="small">${fmtDate(new Date(it.capturedAtISO))} — ${gpsText}</div>
+            <div class="small mono">${it.filename}</div>
+          </div>
+          <div style="display:flex; gap:10px; align-items:center;">
+            <a download="${it.filename}" href="${url}" style="color:#93c5fd;">⬇️</a>
+          </div>
+        </div>
+      `;
+      list.appendChild(div);
+    }
+  }
+
+  // ---------- Eventos ----------
+  el("togBackup").addEventListener("click", () => {
+    state.options.backupOn = !state.options.backupOn;
+    updateBackupPill();
+  });
+
   el("btnLoc").addEventListener("click", testLocation);
 
   el("btnAddRoom").addEventListener("click", () => {
@@ -659,11 +833,61 @@
   });
 
   el("btnUnlock").addEventListener("click", () => {
-    const ok = confirm("Reabrir edição vai destravar OS/ID e permitir ajustar cômodos. Continuar?");
+    const ok = confirm("Reabrir edição destrava OS/ID e os cômodos. Continuar?");
     if (!ok) return;
     lockConfig(false);
-    showSetup();
-    el("setupStatus").textContent = "Edite e clique novamente em “Iniciar Vistoria”. (Se já tiver fotos, evite mudar os cômodos para não bagunçar.)";
+    el("setupCard").style.display = "";
+    el("vistoriaCard").style.display = "none";
+    el("galleryCard").style.display = "none";
+    el("backupCard").style.display = "none";
+    el("setupStatus").textContent = "Edite e clique novamente em “Iniciar Vistoria”.";
+  });
+
+  el("btnExportZip").addEventListener("click", downloadZipAll);
+  el("btnShareZip").addEventListener("click", shareZipAll);
+  el("btnExportJson").addEventListener("click", exportJsonOnly);
+
+  el("btnFinish").addEventListener("click", () => {
+    const okFachada = validateFachada();
+    const s = el("finishStatus");
+    if (!okFachada) {
+      s.textContent = "❌ Falta pelo menos 1 foto de fachada.";
+      s.style.color = "#fecaca";
+      return;
+    }
+    s.textContent = "✅ OK. Exporte/compartilhe o ZIP e (se quiser) apague o backup desta OS.";
+    s.style.color = "#bbf7d0";
+  });
+
+  el("btnClearTop").addEventListener("click", () => {
+    const ok = confirm("Tem certeza que deseja apagar tudo da sessão atual?");
+    if (ok) clearAll();
+  });
+
+  el("btnOpenBackup").addEventListener("click", async () => {
+    await refreshBackupUI(state.config.os);
+    showBackup();
+  });
+
+  el("btnBackToVistoria").addEventListener("click", () => {
+    showVistoria();
+  });
+
+  el("btnDeleteBackupOS").addEventListener("click", async () => {
+    const os = state.config.os;
+    if (!os) return alert("OS não definida.");
+    const ok = confirm(`Apagar TODOS os backups do app referentes à OS ${os}?`);
+    if (!ok) return;
+    await dbDeleteByOS(os);
+    alert("Backups desta OS apagados.");
+  });
+
+  el("btnDeleteBackupAll").addEventListener("click", async () => {
+    const ok = confirm("Apagar TODOS os backups do app (todas as OS)?");
+    if (!ok) return;
+    await dbDeleteAll();
+    await refreshBackupUI(null);
+    alert("Todos os backups apagados.");
   });
 
   el("file").addEventListener("change", async (e) => {
@@ -672,26 +896,41 @@
     if (!file) return;
 
     const room = state.rooms.find(r => r.id === state.activeRoomId);
-    if (!room) { alert("Selecione um cômodo antes de tirar foto."); return; }
+    if (!room) return alert("Selecione um cômodo antes de tirar foto.");
 
     try {
       const stamped = await stampPhoto(file, room.label);
       const url = URL.createObjectURL(stamped.blob);
 
-      // índice sequencial por cômodo
       const roomPhotoIndex = room.photos.length + 1;
       const filename = makePhotoFilename(state.config.os, room.label, roomPhotoIndex);
 
-      room.photos.push({
+      const photoObj = {
         id: crypto.randomUUID(),
         url,
-        blob: stamped.blob,          // <- necessário para colocar no ZIP
-        filename,                    // <- necessário para colocar no ZIP
+        blob: stamped.blob,
+        filename,
         capturedAtISO: stamped.capturedAtISO,
         gps: stamped.gps,
         roomLabel: room.label,
         best: room.photos.length === 0
-      });
+      };
+
+      room.photos.push(photoObj);
+
+      // ✅ Backup interno automático (plano B)
+      if (state.options.backupOn) {
+        await dbPutPhoto({
+          id: photoObj.id,
+          os: state.config.os,
+          roomLabel: photoObj.roomLabel,
+          filename: photoObj.filename,
+          capturedAtISO: photoObj.capturedAtISO,
+          gps: photoObj.gps || null,
+          createdAt: Date.now(),
+          blob: photoObj.blob
+        });
+      }
 
       renderRooms();
       renderGallery();
@@ -700,28 +939,9 @@
     }
   });
 
-  el("btnFinish").addEventListener("click", () => {
-    const okFachada = validateFachada();
-    const s = el("finishStatus");
-    if (!okFachada) {
-      s.textContent = "❌ Não é possível finalizar: falta pelo menos 1 foto em alguma FACHADA.";
-      s.style.color = "#fecaca";
-      return;
-    }
-    s.textContent = "✅ Finalizado (fachada ok). Você pode exportar o ZIP (imagens + manifesto).";
-    s.style.color = "#bbf7d0";
-  });
-
-  el("btnExportJson").addEventListener("click", exportJsonOnly);
-  el("btnExportZip").addEventListener("click", exportZipAll);
-
-  el("btnClearTop").addEventListener("click", () => {
-    const ok = confirm("Tem certeza que deseja apagar tudo?");
-    if (ok) clearAll();
-  });
-
-  // Inicialização
+  // ---------- init ----------
   renderRoomCounters();
+  updateBackupPill();
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("./sw.js").catch(() => {});
